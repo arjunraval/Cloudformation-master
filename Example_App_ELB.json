@@ -1,0 +1,328 @@
+{
+	"AWSTemplateFormatVersion" : "2010-09-09",
+	"Description" : "Example App ELB",
+	"Mappings" : {
+		"params" : {
+			"AppServerExternalPort" : {
+				"test" : "443",
+				"preprod" : "443",
+				"prod" : "443"
+			},
+			"AppServerExternalProtocol" : {
+				"test" : "HTTPS",
+				"preprod" : "HTTPS",
+				"prod" : "HTTPS"
+			},
+			"AppServerInstancePort" : {
+				"test" : "8080",
+				"preprod" : "8080",
+				"prod" : "8080"
+			},
+			"AppServerInstanceProtocol" : {
+				"test" : "HTTP",
+				"preprod" : "HTTP",
+				"prod" : "HTTP"
+			},
+			"ASVCode" : {
+				"test" : "ASVCOBAWS",
+				"preprod" : "ASVCOBAWS",
+				"prod" : "ASVCOBAWS"
+			},
+			"CMDBEnvironments" : {
+				"test" : "ENVNPAWS",
+				"preprod" : "ENVNPAWS",
+				"prod" : "ENVPRAWS"
+			},
+			"HealthCheckPath" : {
+				"test" : "/ServerWebApp/IsOpenForRequests",
+				"preprod" : "/ServerWebApp/IsOpenForRequests",
+				"prod" : "/ServerWebApp/IsOpenForRequests"
+			},
+			"TransactionalSecurityGroups" : {
+				"test" : [ "sg-2bcf904f" ],
+				"preprod" : [ "sg-75e5ca13" ],
+				"prod" : [ "sg-09536e70", "sg-12536e6b" ]
+			},
+			"TransactionalSubnets" : {
+				"test" : [ "subnet-a9660582" ],
+				"preprod" : [ "subnet-eb5aa09d", "subnet-5209150b", "subnet-d1b7b8fa" ],
+				"prod" : [ "subnet-4fe72065", "subnet-36ba0b40", "subnet-6e77bf36" ]
+			},
+			"AdminSubnets" : {
+				"test" : [ "subnet-a9660582" ],
+				"preprod" : [ "subnet-eb5aa09d", "subnet-5209150b", "subnet-d1b7b8fa" ],
+				"prod" : [ "subnet-4fe72065", "subnet-36ba0b40", "subnet-6e77bf36" ]
+			},			
+			"AdminSecurityGroups" : {
+				"test" : [ "sg-2bcf904f" ],
+				"preprod" : [ "sg-84fbfee2" ],
+				"prod" : [ "sg-15536e6c" ]
+			}
+		}
+	},
+	"Parameters" : {
+		"Environment" : {
+			"AllowedValues" : [
+				"prod",
+				"preprod",
+				"test"
+			],
+			"Default" : "test",
+			"Description" : "What environment will this stack be in? (test, preprod or prod)",
+			"Type" : "String"
+		},
+		"ELBName" : {
+			"Default" : "Example-App",
+			"Description" : "What do you want to name this ELB?",
+			"Type" : "String"
+		},
+		"OwnerContact" : {
+			"Description" : "EID of individual creating the stack.",
+			"Type" : "String",
+			"MinLength" : "6",
+			"MaxLength" : "6"
+		},
+		"SSLCertificateId" : {
+			"Default" : "none",
+			"Description" : "If using HTTPS, what SSL Certificate should be used?  If using http, leave it at none.",
+			"Type" : "String",
+			"AllowedValues" : [
+				"none",
+				"arn:aws:iam::084220657940:server-certificate/example-dev1",
+				"arn:aws:iam::084220657940:server-certificate/example-dev2",
+				"arn:aws:iam::084220657940:server-certificate/example-dev3",
+				"arn:aws:iam::084220657940:server-certificate/example-dev4",
+				"arn:aws:iam::084220657940:server-certificate/example-dev5",
+				"arn:aws:iam::084220657940:server-certificate/example-dev6",
+				"arn:aws:iam::084220657940:server-certificate/example-dev7",
+				"arn:aws:iam::084220657940:server-certificate/example-dev7c",
+				"arn:aws:iam::084220657940:server-certificate/example-dev",
+				"arn:aws:iam::084220657940:server-certificate/example-devc",
+				"arn:aws:iam::084220657940:server-certificate/example-atdd",
+				"arn:aws:iam::084220657940:server-certificate/example-qa1",
+				"arn:aws:iam::084220657940:server-certificate/example-qa2",
+				"arn:aws:iam::084220657940:server-certificate/example-perf",
+				"arn:aws:iam::884541871395:server-certificate/example-prod",
+				"arn:aws:iam::884541871395:server-certificate/prod-admin"
+			]
+		},
+		"SNSTopic" : {
+			"Default" : "none",
+			"Description" : "What SNS topic should be associated?",
+			"Type" : "String",
+			"AllowedValues" : [
+				"none",
+				"arn:aws:sns:us-east-1:084220657940:MattSNS",
+				"arn:aws:sns:us-east-1:884541871395:Enterprise_Monitoring_SNS"
+			]
+		},
+        "TransactionalNode": {
+        	"Description": "What stack are you planning to create?",
+        	"Type": "String",
+        	"AllowedValues": ["true","false"],
+        	"Default": "true"
+        }	
+	},
+	"Conditions" : {
+    	"TransactionalCondition":{
+    		"Fn::Equals": [
+    			{"Ref": "TransactionalNode"},
+    			"true"
+    		]
+    	},		
+		"NoSNS" : {
+			"Fn::Equals" : [
+				{"Ref" : "SNSTopic"},
+				"none"
+			]
+		},
+		"NoSSL" : {
+			"Fn::Equals" : [
+				{"Ref" : "SSLCertificateId"},
+				"none"
+			]
+		}
+	},
+	"Resources" : {
+		"LoadBalancerDropAlarm" : {
+			"Type" : "AWS::CloudWatch::Alarm",
+			"Properties" : {
+				"AlarmActions" : [ {
+					"Fn::If" : [ "NoSNS",
+						{ "Ref" : "AWS::NoValue" },
+						{ "Ref" : "SNSTopic" }
+					]
+				} ],
+				"AlarmDescription" : "ELB Queue dropped requests",
+				"ComparisonOperator" : "GreaterThanThreshold",
+				"Dimensions" : [ {
+					"Name" : "LoadBalancerName",
+					"Value" : { "Ref" : "exampleAppELB" }
+				} ],
+				"EvaluationPeriods" : "1",
+				"MetricName" : "SpilloverCount",
+				"Namespace" : "AWS/ELB",
+				"Period" : "300",
+				"Statistic" : "Sum",
+				"Threshold" : "512"
+			}
+		},
+		"LoadBalancerLatencyAlarm" : {
+			"Type" : "AWS::CloudWatch::Alarm",
+			"Properties" : {
+				"AlarmActions" : [ {
+					"Fn::If" : [ "NoSNS",
+						{ "Ref" : "AWS::NoValue" },
+						{ "Ref" : "SNSTopic" }
+					]
+				} ],
+				"AlarmDescription" : "ELB Backend Latency",
+				"ComparisonOperator" : "GreaterThanThreshold",
+				"Dimensions" : [ {
+					"Name" : "LoadBalancerName",
+					"Value" : { "Ref" : "exampleAppELB" }
+				} ],
+				"EvaluationPeriods" : "2",
+				"MetricName" : "Latency",
+				"Namespace" : "AWS/ELB",
+				"Period" : "60",
+				"Statistic" : "Average",
+				"Threshold" : "2"
+			}
+		},
+		"LoadBalancerQueueAlarm" : {
+			"Type" : "AWS::CloudWatch::Alarm",
+			"Properties" : {
+				"AlarmActions" : [ {
+					"Fn::If" : [ "NoSNS",
+						{ "Ref" : "AWS::NoValue" },
+						{ "Ref" : "SNSTopic" }
+					]
+				} ],
+				"AlarmDescription" : "ELB Queue overloaded",
+				"ComparisonOperator" : "GreaterThanThreshold",
+				"Dimensions" : [ {
+					"Name" : "LoadBalancerName",
+					"Value" : { "Ref" : "exampleAppELB" }
+				} ],
+				"EvaluationPeriods" : "2",
+				"MetricName" : "SurgeQueueLength",
+				"Namespace" : "AWS/ELB",
+				"Period" : "300",
+				"Statistic" : "Maximum",
+				"Threshold" : "1024"
+			}
+		},
+		"exampleAppELB" : {
+			"Type" : "AWS::ElasticLoadBalancing::LoadBalancer",
+			"Properties" : {
+				"ConnectionDrainingPolicy" : {
+					"Enabled" : true,
+					"Timeout" : 120
+				},
+				"ConnectionSettings" : { "IdleTimeout" : 90 },
+				"CrossZone" : "true",
+				"HealthCheck" : {
+					"HealthyThreshold" : "3",
+					"Interval" : "60",
+					"Target" : {
+						"Fn::Join" : [
+							"",
+							[
+								{ "Fn::FindInMap" : [ "params", "AppServerInstanceProtocol", { "Ref" : "Environment" } ] },
+								":",
+								{ "Fn::FindInMap" : [ "params", "AppServerInstancePort", { "Ref" : "Environment" } ] },
+								{ "Fn::FindInMap" : [ "params", "HealthCheckPath", { "Ref" : "Environment" } ] }
+							]
+						]
+					},
+					"Timeout" : "59",
+					"UnhealthyThreshold" : "10"
+				},
+				"Listeners" : [ {
+					"InstancePort" : { "Fn::FindInMap" : [ "params", "AppServerInstancePort", { "Ref" : "Environment" } ] },
+					"InstanceProtocol" : { "Fn::FindInMap" : [ "params", "AppServerInstanceProtocol", { "Ref" : "Environment" } ] },
+					"LoadBalancerPort" : { "Fn::FindInMap" : [ "params", "AppServerExternalPort", { "Ref" : "Environment" } ] },
+					"Protocol" : { "Fn::FindInMap" : [ "params", "AppServerExternalProtocol", { "Ref" : "Environment" } ] },
+					"SSLCertificateId" : {
+						"Fn::If" : [ "NoSSL",
+							{ "Ref" : "AWS::NoValue" },
+							{ "Ref" : "SSLCertificateId" }
+						]
+					}
+				} ],
+				"LoadBalancerName" : { "Ref" : "ELBName" },
+				"Scheme" : "internal",
+                "SecurityGroups": {
+                	"Fn::If":[
+                		"TransactionalCondition",
+                		{"Fn::FindInMap":["params","TransactionalSecurityGroups", {"Ref":"Environment"}]},
+                		{"Fn::FindInMap":["params","AdminSecurityGroups", {"Ref":"Environment"}]}
+                		]
+                	},				
+				"Subnets": {
+                	"Fn::If":[
+                		"TransactionalCondition",
+	                		{"Fn::FindInMap":["params","TransactionalSubnets", {"Ref":"Environment"}]},
+	                		{"Fn::FindInMap":["params","AdminSubnets", {"Ref":"Environment"}]}
+                	]
+                },
+				"Tags" : [
+					{
+						"Key" : "ASV",
+						"Value" : { "Fn::FindInMap" : [ "params", "ASVCode", { "Ref" : "Environment" } ] }
+					},
+					{
+						"Key" : "Channel",
+						"Value" : "Example"
+					},
+					{
+						"Key" : "CMDBEnvironments",
+						"Value" : { "Fn::FindInMap" : [ "params", "CMDBEnvironments", { "Ref" : "Environment" } ] }
+					},
+					{
+						"Key" : "Name",
+						"Value" : { "Ref" : "AWS::StackName" }
+					},
+					{
+						"Key" : "OwnerContact",
+						"Value" : { "Ref" : "OwnerContact" }
+					},
+					{
+						"Key" : "RestAPIServer",
+						"Value" : "Example"
+					},
+					{
+						"Key" : "SNSTopicARN",
+						"Value" : { "Ref" : "SNSTopic" }
+					}
+				]
+			}
+		}
+	},
+	"Outputs" : {
+		"LoadBalancerDomain" : {
+			"Description" : "DNS Name of App ELB",
+			"Value" : {
+				"Fn::GetAtt" : [
+					"exampleAppELB",
+					"DNSName"
+				]
+			}
+		},
+		"LoadBalancerName" : {
+			"Description" : "Name of Load Balancer",
+			"Value" : { "Ref" : "ELBName" }
+		},
+		"OwnerContact" : {
+			"Description" : "EID of individual creating the stack.",
+			"Value" : { "Ref" : "OwnerContact" }
+		},
+		"StackName" : {
+			"Description" : "Name of Load Balancer Stack",
+			"Value" : {
+				"Ref" : "AWS::StackName"
+			}
+		}
+	}
+}

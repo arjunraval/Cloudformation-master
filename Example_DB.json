@@ -1,0 +1,260 @@
+{
+	"AWSTemplateFormatVersion" : "2010-09-09",
+	"Description" : "Oracle DB Instance for Example",
+	"Mappings" : {
+		"params" : {
+			"ASVCode" : {
+				"test" : "ASVCOBAWS",
+				"preprod" : "ASVCOBAWS",
+				"prod" : "ASVCOBAWS"
+			},
+			"BackupRetentionPeriod" : {
+				"test" : "1",
+				"preprod" : "7",
+				"prod" : "7"
+			},
+			"CMDBEnvironment" : {
+				"test" : "ENVNPAWS",
+				"preprod" : "ENVNPAWS",
+				"prod" : "ENVPRAWS"
+			},
+			"DBInstanceClass" : {
+				"test" : "db.m3.medium",
+				"preprod" : "db.m3.medium",
+				"prod" : "db.m3.large"
+			},
+			"DBSubnetGroupName" : {
+				"test" : "dev-vpc-dbsubnetgroup1-umkxgmtjmrw4",
+				"preprod" : "example-subnetgroup",
+				"prod" : "example-prod"
+			},
+			"Engine" : {
+				"test" : "oracle-ee",
+				"preprod" : "oracle-ee",
+				"prod" : "oracle-ee"
+			},
+			"EngineVersion" : {
+				"test" : "11.2.0.4.v3",
+				"preprod" : "11.2.0.4.v3",
+				"prod" : "11.2.0.4.v3"
+			},
+			"LicenseModel" : {
+				"test" : "bring-your-own-license",
+				"preprod" : "bring-your-own-license",
+				"prod" : "bring-your-own-license"
+			},
+			"MultiAZ" : {
+				"test" : [ "false" ],
+				"preprod" : [ "true" ],
+				"prod" : [ "true" ]
+			},
+			"RDSPort" : {
+				"test" : "1521",
+				"preprod" : "1521",
+				"prod" : "1521"
+			},
+			"TicketCreateSNS" : {
+				"test" : "arn:aws:sns:us-east-1:084220657940:ArjunSNS",
+				"preprod" : "arn:aws:sns:us-east-1:084220657940:ArjunSNS",
+				"prod" : "arn:aws:sns:us-east-1:884541871395:Enterprise_Monitoring_SNS"
+			},
+			"VPCSecurityGroups" : {
+				"test" : [ "sg-2bcf904f" ],
+				"preprod" : [ "sg-3efaff58" ],
+				"prod" : [ "sg-97536eee", "sg-8ed8b3ea" ]
+			}
+		}
+	},
+	"Parameters" : {
+		"AllocatedStorage" : {
+			"Default" : "100",
+			"Description" : "Allocated Storage in GB.",
+			"Type" : "Number"
+		},
+		"ServiceName" : {
+			"Default" : "EXAMPLE",
+			"Description" : "Name of the Service Name/TNSName (eg. <ServiceName>.amazon.com).",
+			"Type" : "String"
+		},
+		"AutoMinorVersionUpgrade" : {
+			"Default" : "true",
+			"Description" : "Allow for minor versions to be upgraded automatically?",
+			"Type" : "String",
+			"AllowedValues" : [
+				"true",
+				"false"
+			]
+		},
+		"DBName" : {
+			"Default" : "EXAMPLE",
+			"Description" : "Database Schema name. First character must be a letter, maximum 8 characters.",
+			"Type" : "String"
+		},
+		"Environment" : {
+			"Default" : "test",
+			"Description" : "What environment type is it (prod, preprod, test)?",
+			"Type" : "String",
+			"AllowedValues" : [
+				"prod",
+				"preprod",
+				"test"
+			]
+		},
+		"MasterUsername" : {
+			"Description" : "Database administration name . First character must be a letter.",
+			"Type" : "String"
+		},
+		"MasterUserPassword" : {
+			"NoEcho" : "true",
+			"Description" : "Database administration password. Minimum of 8 alphanumeric characters (pattern of [a-zA-Z0-9]).",
+			"Type" : "String",
+			"MinLength" : "8",
+			"AllowedPattern" : "[a-zA-Z0-9]*",
+			"ConstraintDescription" : "Must only contain upper and lowercase letters and numbers"
+		},
+		"OwnerContact" : {
+			"Description" : "EID of individual creating the stack.",
+			"Type" : "String",
+			"MinLength" : "6",
+			"MaxLength" : "6"
+		},
+		"PreferredBackupWindow" : {
+			"Default" : "05:00-07:00",
+			"Description" : "Preferred backup window in UTC, specify in format hh24:mi-hh24:mi (eg. 17:00-19:00), minimum 30 minutes.  Must not conflict with the preferred maintenance window.",
+			"Type" : "String"
+		},
+		"PreferredMaintenanceWindow" : {
+			"Default" : "Sun:07:00-Sun:11:00",
+			"Description" : "Preferred maintenance window in UTC, specify in format ddd:hh24:mi-ddd:hh24:mi (eg. Sun:19:00-Sun:23:00), minimum 30 minutes.",
+			"Type" : "String"
+		}
+	},
+	"Conditions" : {
+		"dev" : {
+			"Fn::Equals" : [
+				{"Ref" : "Environment"},
+				"test"
+			]
+		}
+	},
+	"Resources" : {
+		"RDSOracle" : {
+			"Type" : "AWS::RDS::DBInstance",
+			"DeletionPolicy" : "Snapshot",
+			"Properties" : {
+				"AllocatedStorage" : { "Ref" : "AllocatedStorage" },
+				"AllowMajorVersionUpgrade" : "false",
+				"AutoMinorVersionUpgrade" : { "Ref" : "AutoMinorVersionUpgrade" },
+				"BackupRetentionPeriod" : { "Fn::FindInMap" : ["params", "BackupRetentionPeriod", { "Ref" : "Environment" } ] },
+				"DBInstanceClass" : { "Fn::FindInMap" : ["params", "DBInstanceClass", { "Ref" : "Environment" } ] } ,
+				"DBInstanceIdentifier" : { "Ref" : "ServiceName" },
+				"DBName" : { "Ref" : "DBName" },
+				"DBSubnetGroupName" : { "Fn::FindInMap" : ["params", "DBSubnetGroupName", { "Ref" : "Environment" } ] } ,
+				"Engine" : { "Fn::FindInMap" : ["params", "Engine", { "Ref" : "Environment" } ] },
+				"EngineVersion" : { "Fn::FindInMap" : ["params", "EngineVersion", { "Ref" : "Environment" } ] },
+				"LicenseModel" : { "Fn::FindInMap" : ["params", "LicenseModel", { "Ref" : "Environment" } ] },
+				"MasterUsername" : { "Ref" : "MasterUsername" },
+				"MasterUserPassword" : { "Ref" : "MasterUserPassword" },
+				"MultiAZ" : { 
+					"Fn::If" : [ "dev",
+						"false",
+						"true"
+					]
+				},
+				"Port" : { "Fn::FindInMap" : ["params", "RDSPort", { "Ref" : "Environment" } ] },
+				"PreferredBackupWindow" : { "Ref" : "PreferredBackupWindow" },
+				"PreferredMaintenanceWindow" : { "Ref" : "PreferredMaintenanceWindow" },
+				"PubliclyAccessible" : "false",
+				"StorageEncrypted" : { "true" },
+				"StorageType" : "gp2",
+				"VPCSecurityGroups" : { "Fn::FindInMap" : ["params", "VPCSecurityGroups", { "Ref" : "Environment" } ] },
+				"Tags" : [
+					{
+						"Key" : "ASV",
+						"Value" : { "Fn::FindInMap" : [ "params", "ASVCode", { "Ref" : "Environment" } ] }
+					},
+					{
+						"Key" : "Channel",
+						"Value" : "EXAMPLE"
+					},
+					{
+						"Key" : "CMDBEnvironment",
+						"Value" : { "Fn::FindInMap" : [ "params", "CMDBEnvironment", { "Ref" : "Environment" } ] }
+					},
+					{
+						"Key" : "Name",
+						"Value" : { "Ref" : "AWS::StackName" }
+					},
+					{
+						"Key" : "OwnerContact",
+						"Value" : { "Ref" : "OwnerContact" }
+					},
+					{
+						"Key" : "RestAPIServer",
+						"Value" : "EXAM_PLE"
+					},
+					{
+						"Key" : "SNSTopicARN",
+						"Value" : { "Fn::FindInMap" : [ "params", "TicketCreateSNS", { "Ref" : "Environment" } ] }
+					}
+				]
+			}
+		},
+		"AlarmRDSCPUUtil" : {
+			"Type" : "AWS::CloudWatch::Alarm",
+			"Properties" : {
+				"AlarmActions" : [ { "Fn::FindInMap" : [ "params", "TicketCreateSNS", { "Ref" : "Environment" } ] } ],
+				"AlarmDescription" : "CPU Utilization on RDS Instance is too high",
+				"ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+				"Dimensions" : [
+					{
+						"Name" : "DBInstanceIdentifier",
+						"Value" : { "Ref" : "RDSOracle" }
+					}
+				],
+				"EvaluationPeriods" : "1",
+				"MetricName" : "CPUUtilization",
+				"Namespace" : "AWS/RDS",
+				"Period" : "300",
+				"Statistic" : "Average",
+				"Threshold" : "50"
+			}
+		},
+		"AlarmRDSStorageSpace" : {
+			"Type" : "AWS::CloudWatch::Alarm",
+			"Properties" : {
+				"AlarmActions" : [ { "Fn::FindInMap" : [ "params", "TicketCreateSNS", { "Ref" : "Environment" } ] } ],
+				"AlarmDescription" : "5gb left of storage available on RDS Instance",
+				"ComparisonOperator" : "LessThanOrEqualToThreshold",
+				"Dimensions" : [
+					{
+						"Name" : "DBInstanceIdentifier",
+						"Value" : { "Ref" : "RDSOracle" }
+					}
+				],
+				"EvaluationPeriods" : "1",
+				"MetricName" : "FreeStorageSpace",
+				"Namespace" : "AWS/RDS",
+				"Period" : "300",
+				"Statistic" : "Maximum",
+				"Threshold" : "5242880000"
+			}
+		}
+	},
+	"Outputs" : {
+		"OwnerContact" : {
+			"Description" : "EID of individual creating the stack.",
+			"Value" : { "Ref" : "OwnerContact" }
+		},
+		"RDSEndpoint" : {
+			"Description" : "The endpoint of the RDS instance.",
+			"Value" : {
+				"Fn::GetAtt" : ["RDSOracle", "Endpoint.Address"]
+			}
+		},
+		"RDSPort" : {
+			"Description" : "The port the RDS instance accepts connections on.",
+			"Value" : { "Fn::GetAtt" : ["RDSOracle", "Endpoint.Port"] }
+		}
+	}
+}

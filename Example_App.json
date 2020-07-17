@@ -1,0 +1,580 @@
+{
+	"AWSTemplateFormatVersion" : "2010-09-09",
+	"Description" : "Example Application Tier",
+	"Mappings" : {
+		"params" : {
+			"ASVCode" : {
+				"test" : "ASVCOBAWS",
+				"preprod" : "ASVCOBAWS",
+				"prod" : "ASVCOBAWS"
+			},
+			"AvailabilityZones" : {
+				"test" : [ "us-east-1c" ],
+				"preprod" : [ "us-east-1a", "us-east-1d", "us-east-1c" ],
+				"prod" : [ "us-east-1a", "us-east-1b", "us-east-1c" ]
+			},
+			"CMDBEnvironment" : {
+				"test" : "ENVNPexampleAWS",
+				"preprod" : "ENVNPexampleAWS",
+				"prod" : "ENVPRexampleAWS"
+			},
+			"InstanceType" : {
+				"test" : "m3.medium",
+				"preprod" : "m3.medium",
+				"prod" : "m3.medium"
+			},
+			"AdminSecurityGroups" : {
+				"test" : [ "sg-2bcf904f" ],
+				"preprod" : [ "sg-84fbfee2", "sg-72ce9116", "sg-6af4220d", "sg-53ce9137", "sg-40339b26" ],
+				"prod" : [ "sg-15536e6c", "sg-8dd8b3e9", "sg-61dfb405", "sg-01f12766", "sg-78b1411f" ]
+			},			
+			"TransactionalSecurityGroups" : {
+				"test" : [ "sg-2bcf904f" ],
+				"preprod" : [ "sg-75e5ca13", "sg-72ce9116", "sg-6af4220d", "sg-53ce9137", "sg-40339b26" ],
+				"prod" : [ "sg-09536e70", "sg-12536e6b", "sg-8dd8b3e9", "sg-61dfb405", "sg-01f12766", "sg-78b1411f" ]
+			},
+			"Subnets" : {
+				"test" : [ "subnet-a9660582" ],
+				"preprod" : [ "subnet-eb5aa09d", "subnet-5209150b", "subnet-d1b7b8fa" ],
+				"prod" : [ "subnet-4fe72065", "subnet-36ba0b40", "subnet-6e77bf36" ]
+			}
+		},
+		"bash" : {
+			"base" : {
+				"base" : "#!/bin/bash -v \n mkdir /var/log/pce \n",
+				"centrifyBase" : "yum -y install /opt/prebuild_depot/COFAgents/centrifydc* \n yum -y install /opt/prebuild_depot/COFAgents/COF-centrify-scripts* \n"
+			},
+			"centrifyEnv" : {
+				"test" : "/opt/centrify/domain-join.sh checkmikecheck.com DAWS_ENVNP_example_CG aws >> /var/log/pce/centrify_stacktrace.log 2>&1 & \n",
+				"preprod" : "/opt/centrify/domain-join.sh checkmikecheck.com DAWS_ENVNP_example_CG aws >> /var/log/pce/centrify_stacktrace.log 2>&1 & \n",
+				"prod" : "/opt/centrify/domain-join.sh checkmikecheck.com PAWS_ENVPR_example_CG aws >> /var/log/pce/centrify_stacktrace.log 2>&1 & \n"
+			},
+			"chefEnvPre" : {
+				"test" : "mkdir /etc/chef \n echo",
+				"preprod" : "mkdir /etc/chef \n echo",
+				"prod" : "mkdir /etc/chef \n echo"
+			},
+			"chefEnvPost" : {
+				"test" : "> /etc/chef/encrypted_data_bag_secret \n chmod 0400 /etc/chef/encrypted_data_bag_secret \n /opt/prebuild_depot/chef-bootstrap-linux.sh aws-east dev aws role[exam_ple]",
+				"preprod" : "> /etc/chef/encrypted_data_bag_secret \n chmod 0400 /etc/chef/encrypted_data_bag_secret \n /opt/prebuild_depot/chef-bootstrap-linux.sh aws-east preprod aws role[exam_ple]",
+				"prod" : "> /etc/chef/encrypted_data_bag_secret \n chmod 0400 /etc/chef/encrypted_data_bag_secret \n /opt/prebuild_depot/chef-bootstrap-linux.sh aws-east prod aws role[exam_ple]"
+			},
+			"secondWAR" : {
+				"test" : "( while [ ! -d /opt/jboss/standalone/deployments/ ]; do sleep 1m; done \n cd /opt/jboss/standalone/deployments/ \n wget -O Dataupdate.war -r -l1 -np -nd -ADataupdate*.war https://checkmikecheck.com/mother/content/repositories/snapshots/com/checkmikecheck/exampleaws/Dataupdate/2015.01.01-SNAPSHOT/ \n ) &",
+				"preprod" : "( while [ ! -d /opt/jboss/standalone/deployments/ ]; do sleep 1m; done \n cd /opt/jboss/standalone/deployments/ \n wget -O Dataupdate.war -r -l1 -np -nd -ADataupdate*.war https://checkmikecheck.com/mother/content/repositories/snapshots/com/checkmikecheck/exampleaws/Dataupdate/2015.01.01-SNAPSHOT/ \n ) &",
+				"prod" : ""
+			}
+		}
+	},
+	"Parameters" : {
+		"AppElasticLoadBalancer" : {
+			"Default" : "none",
+			"Description" : "What ELB should this instance group connect to?",
+			"Type" : "String",
+			"AllowedValues" : [
+				"example-App-Elb-QA1-Transaction",
+				"example-App-Elb-QA1-Admin",
+				"example-App-PERF",
+				"example-App-Elb-Prod-Transaction",
+				"example-App-Elb-Prod-Admin",
+				"example-App-Dev-ATDD",
+				"example-App-Dev",
+				"example-App-Dev2",
+				"example-App-Dev3",
+				"example-App-Dev4",
+				"example-App-Dev00",
+				"example-App-Dev00c",
+				"example-App-Dev01",
+				"example-App-Dev02",
+				"example-App-Dev03",
+				"example-App-Dev04",
+				"example-App-Dev05",
+				"example-App-Dev06",
+				"example-App-Dev07",
+				"example-App-Dev07c",
+				"none"
+			]
+		},
+		"AppInstanceProfileValue": {
+			"Description": "Select the Role Name created eg: Example-Dev-CustomRole",
+			"Type": "String",
+			"Default" : "Example-Dev-CustomRole"
+	        },
+		"CapacityMax" : {
+			"Default" : "1",
+			"Description" : "Maximum number of servers that can be scaled to",
+			"Type" : "Number",
+			"AllowedValues" : [
+			"1",
+			"2",
+			"3",
+			"4",
+			"6",
+			"8",
+			"9",
+			"10",
+			"12"
+			]
+		},
+		"CapacityMin" : {
+			"Default" : "1",
+			"Description" : "Minimum number of servers that can be scaled to",
+			"Type" : "Number",
+			"AllowedValues" : [
+			"1",
+			"2",
+			"3"
+			]
+		},
+		"ChefEnv" : {
+			"Description" : "Chef Environment to deploy.",
+			"Type" : "String",
+			"Default" : "exam_ple_dev"
+		},
+		"DatabaseWAR" : {
+			"Default" : "false",
+			"Description" : "Do you want a second WAR deployed to handle commands pass-through to database?",
+			"Type" : "String",
+			"AllowedValues" : [
+				"true",
+				"false"
+			]
+		},
+		"Environment" : {
+			"Default" : "test",
+			"Description" : "What environment type is it (prod, preprod, test)?",
+			"Type" : "String",
+			"AllowedValues" : [
+				"prod",
+				"preprod",
+				"test"
+			]
+		},
+		"ImageId" : {
+			"Description" : "Latest approved Linux RHEL 6 AMI for correct environment/region.",
+			"Type" : "String",
+			"Default" : "ami-78fbc512"
+		},
+		"KeyPair" : {
+			"Description" : "Name of your SSH key pair, none will be allowed for production",
+			"Type" : "String",
+			"Default" : "EXAMPLE",
+			"AllowedValues" : [
+				"EXAMPLE",
+				"none"
+			]
+		},
+		"OwnerContact" : {
+			"Description" : "EID of individual creating the stack.",
+			"Type" : "String",
+			"MinLength" : "6",
+			"MaxLength" : "6"
+		},
+		"ScheduledPeriodicallyTurnOff" : {
+			"Default" : "true",
+			"Description" : "Do you want the EC2 instances to turn off on a periodic basis (primarily to save money)?",
+			"Type" : "String",
+			"AllowedValues" : [
+				"true",
+				"false"
+			]
+		},
+		"ScheduledTurnOff" : {
+			"Default" : "0 0 * * 1-5",
+			"Description" : "If periodic turn off, what time to turn off?  Default is 7pm on weekdays.",
+			"Type" : "String"
+		},
+		"ScheduledTurnOn" : {
+			"Default" : "0 12 * * 1-5",
+			"Description" : "If periodic turn off, what time to turn on?  Default is 7am EST on weekdays.",
+			"Type" : "String"
+		},
+		"SecretPassword" : {
+			"AllowedPattern" : "^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[!@$%^&+=#$])([A-Za-z0-9!@$%^&+=#]+)$",
+			"ConstraintDescription" : "Must contain at least 1 of the following: upper case letter, lower case letter, number, and special character. Minimum 8 characters.",
+			"Default" : "D3faultP@ssword!",
+			"Description" : "Secret password used to decrypt all passwords.",
+			"MinLength" : "8",
+			"NoEcho" : "true",
+			"Type" : "String"
+		},
+		"SNSTopic" : {
+			"Default" : "none",
+			"Description" : "What SNS topic should be associated?",
+			"Type" : "String",
+			"AllowedValues" : [
+				"none",
+				"arn:aws:sns:us-east-1:084220657940:ArjunSNS",
+				"arn:aws:sns:us-east-1:884541871395:Enterprise_Monitoring_SNS",
+				"arn:aws:sns:us-east-1:084220657940:Flying_Monkeys"
+			]
+		},
+        "Cluster": {
+            "Description": "Is Clustering enabled?",
+            "Type": "String",
+            "AllowedValues": [
+                "true",
+                "false"
+            ],
+            "Default": "false"
+        },		
+        "TransactionalNode": {
+        	"Description": "What stack are you planning to create?",
+        	"Type": "String",
+        	"AllowedValues": ["true","false"],
+        	"Default": "true"
+        }		
+	},
+	"Conditions" : {
+        "ClusterCondition": {
+            "Fn::Equals": [{
+                    "Ref": "Cluster"
+                },
+                "true"
+            ]
+        },		
+    	"TransactionalCondition":{
+    		"Fn::Equals": [
+    			{"Ref": "TransactionalNode"},
+    			"true"
+    		]
+    	},		
+		"NoELB" : {
+			"Fn::Equals" : [
+				{"Ref" : "AppElasticLoadBalancer"},
+				"none"
+			]
+		},
+		"NoSNS" : {
+			"Fn::Equals" : [
+				{"Ref" : "SNSTopic"},
+				"none"
+			]
+		},
+		"NoKey" : {
+			"Fn::Or" : [
+				{
+					"Fn::Equals" : [
+						{"Ref" : "Environment"},
+						"prod"
+					]
+				},
+				{
+					"Fn::Equals" : [
+						{"Ref" : "KeyPair"},
+						"none"
+					]
+				}
+			]
+		},
+		"DatabaseWAR" : {
+			"Fn::Equals" : [
+				{"Ref" : "DatabaseWAR"},
+				"true"
+			]
+		},
+		"TurnOffNightly" : {
+			"Fn::Equals" : [
+				{"Ref" : "ScheduledPeriodicallyTurnOff"},
+				"true"
+			]
+		}
+	},
+	"Resources" : {
+		"AppAutoScalingGroup" : {
+			"Type" : "AWS::AutoScaling::AutoScalingGroup",
+			"Properties" : {
+				"AvailabilityZones" : { "Fn::FindInMap" : [ "params", "AvailabilityZones", { "Ref" : "Environment" } ] },
+				"Cooldown" : 2700,
+				"DesiredCapacity" : { "Ref" : "CapacityMin" },
+				"HealthCheckGracePeriod" : 2400,
+				"HealthCheckType" : {
+					"Fn::If" : [ "NoELB",
+						"EC2",
+						"ELB"
+					]
+				},
+				"LaunchConfigurationName" : { "Ref" : "AppLaunchConfiguration" },
+				"LoadBalancerNames" : [ { 
+					"Fn::If" : [ "NoELB",
+						{"Ref" : "AWS::NoValue" },
+						{"Ref" : "AppElasticLoadBalancer" }
+					]
+				} ],
+				"MaxSize" : { "Ref" : "CapacityMax" },
+				"MinSize" : { "Ref" : "CapacityMin" },
+				"NotificationConfiguration" : {
+					"Fn::If" : [ "NoSNS",
+						{ "Ref" : "AWS::NoValue" },
+						{
+							"NotificationTypes" : [
+								"autoscaling:EC2_INSTANCE_LAUNCH",
+								"autoscaling:EC2_INSTANCE_LAUNCH_ERROR",
+								"autoscaling:EC2_INSTANCE_TERMINATE",
+								"autoscaling:EC2_INSTANCE_TERMINATE_ERROR"
+							],
+							"TopicARN" : { "Ref" : "SNSTopic" }
+						}
+					]
+				},
+				"Tags" : [
+					{
+						"Key" : "ASV",
+						"Value" : { "Fn::FindInMap" : [ "params", "ASVCode", { "Ref" : "Environment" } ] },
+						"PropagateAtLaunch" : "true"
+					},
+					{
+						"Key" : "Channel",
+						"Value" : "EXAMPLE",
+						"PropagateAtLaunch" : "true"
+					},
+					{
+						"Key" : "CMDBEnvironment",
+						"Value" : { "Fn::FindInMap" : [ "params", "CMDBEnvironment", { "Ref" : "Environment" } ] },
+						"PropagateAtLaunch" : "true"
+					},
+					{
+						"Key" : "Name",
+						"Value" : { "Ref" : "AWS::StackName" },
+						"PropagateAtLaunch" : "true"
+					},
+					{
+						"Key" : "OwnerContact",
+						"Value" : { "Ref" : "OwnerContact" },
+						"PropagateAtLaunch" : "true"
+					},
+					{
+						"Key" : "RestAPIServer",
+						"Value" : "EXAM_PLE",
+						"PropagateAtLaunch" : "true"
+					},
+					{
+						"Key" : "SNSTopicARN",
+						"Value" : { "Ref" : "SNSTopic" },
+						"PropagateAtLaunch" : "true"
+					}
+				],
+				"VPCZoneIdentifier" : {
+                    "Fn::If": [
+                        "ClusterCondition",
+                        {
+                            "Fn::If": [
+                                "TransactionalCondition",
+                                {"Fn::FindInMap": ["params", "Subnets", {"Ref": "Environment"}]},
+                                {"Fn::FindInMap": ["params", "Subnets", {"Ref": "Environment"}]}
+                            ]
+                        },
+                                {"Fn::FindInMap": ["params", "Subnets", {"Ref": "Environment"}]}
+                    ]
+
+                }				
+			}
+		},
+		"AppCpuHighAlarm" : {
+			"Type" : "AWS::CloudWatch::Alarm",
+			"Properties" : {
+				"AlarmActions" : [ { "Ref" : "AppDynamicScaleUpPolicy" } ],
+				"AlarmDescription" : "Scale up if CPU > 65% average over 9 minutes",
+				"ComparisonOperator" : "GreaterThanThreshold",
+				"Dimensions" : [ {
+					"Name" : "AutoScalingGroupName",
+					"Value" : { "Ref" : "AppAutoScalingGroup" }
+				} ],
+				"EvaluationPeriods" : 3,
+				"MetricName" : "CPUUtilization",
+				"Namespace" : "AWS/EC2",
+				"Period" : 180,
+				"Statistic" : "Average",
+				"Threshold" : "65",
+				"Unit" : "Percent"
+			}
+		},
+		"AppCpuLowAlarm" : {
+			"Type" : "AWS::CloudWatch::Alarm",
+			"Properties" : {
+				"AlarmActions" : [ { "Ref" : "AppDynamicScaleDownPolicy" } ],
+				"AlarmDescription" : "Scale down if CPU <= 40% average over 30 minutes",
+				"ComparisonOperator" : "LessThanOrEqualToThreshold",
+				"Dimensions" : [ {
+					"Name" : "AutoScalingGroupName",
+					"Value" : { "Ref" : "AppAutoScalingGroup" }
+				} ],
+				"EvaluationPeriods" : 6,
+				"MetricName" : "CPUUtilization",
+				"Namespace" : "AWS/EC2",
+				"Period" : 300,
+				"Statistic" : "Average",
+				"Threshold" : "40",
+				"Unit" : "Percent"
+			}
+		},
+		"AppDynamicScaleDownPolicy" : {
+			"Type" : "AWS::AutoScaling::ScalingPolicy",
+			"Properties" : {
+				"AdjustmentType" : "ChangeInCapacity",
+				"AutoScalingGroupName" : { "Ref" : "AppAutoScalingGroup" },
+				"Cooldown" : 3300,
+				"ScalingAdjustment" : { 
+					"Fn::Join" : [
+						"",
+						[
+							"-",
+							{ "Ref" : "CapacityMin" }
+						]
+					]
+				}
+			}
+		},
+		"AppDynamicScaleUpPolicy" : {
+			"Type" : "AWS::AutoScaling::ScalingPolicy",
+			"Properties" : {
+				"AdjustmentType" : "ChangeInCapacity",
+				"AutoScalingGroupName" : { "Ref" : "AppAutoScalingGroup" },
+				"Cooldown" : 2700,
+				"ScalingAdjustment" : { "Ref" : "CapacityMin" }
+			}
+		},
+		"AppLaunchConfiguration" : {
+			"Type" : "AWS::AutoScaling::LaunchConfiguration",
+			"Properties" : {
+				"AssociatePublicIpAddress" : "false",
+                "IamInstanceProfile": {
+                    "Ref": "AppInstanceProfileValue"
+                },				
+				"ImageId" : { "Ref" : "ImageId" },
+				"InstanceType" : { "Fn::FindInMap" : [ "params", "InstanceType", { "Ref" : "Environment" } ] },
+				"KeyName" : {
+					"Fn::If" : [ "NoKey",
+						{"Ref" : "AWS::NoValue" },
+						{"Ref" : "KeyPair" }
+					]
+				},
+                "SecurityGroups": {
+                    "Fn::If": [
+                        "TransactionalCondition",
+                        {"Fn::If": [
+                            "TransactionalCondition", 
+                            {"Fn::FindInMap": ["params", "TransactionalSecurityGroups", {"Ref":"Environment"}]},
+                            {"Fn::FindInMap": ["params", "AdminSecurityGroups", {"Ref":"Environment"}]}
+                            ]
+                        },
+                        {"Fn::FindInMap": ["params", "AdminSecurityGroups", {"Ref":"Environment"}]}
+                    ]
+                },				
+				"UserData" : {
+					"Fn::Base64" : {
+						"Fn::Join" : [
+							"",
+							[
+								{ "Fn::FindInMap" : [ "bash", "base", "base" ] },
+								{ "Fn::Join" : [
+									" ",
+									[
+										{ "Fn::FindInMap" : [ "bash", "chefEnvPre", { "Ref" : "Environment" } ] },
+										{ "Ref" : "SecretPassword" },
+										{ "Fn::FindInMap" : [ "bash", "chefEnvPost", { "Ref" : "Environment" } ] },
+										{ "Ref" : "ChefEnv" },
+										"> /var/log/pce/chef_log.txt \n",
+										"sleep 300 \n"
+									]
+								] },
+								{ "Fn::If" : [ "DatabaseWAR",
+									{ "Fn::FindInMap" : [ "bash", "secondWAR", { "Ref" : "Environment" } ] },
+									{"Ref" : "AWS::NoValue" }
+								] },
+								{ "Fn::FindInMap" : [ "bash", "base", "centrifyBase" ] },
+								{ "Fn::FindInMap" : [ "bash", "centrifyEnv", { "Ref" : "Environment" } ] }
+							]
+						]
+					}
+				}
+			}
+		},
+		"AppScheduledActionDown" : {
+			"Condition" : "TurnOffNightly",
+			"Type" : "AWS::AutoScaling::ScheduledAction",
+			"Properties" : {
+				"AutoScalingGroupName" : {
+					"Ref" : "AppAutoScalingGroup"
+				},
+				"DesiredCapacity" : "0",
+				"MaxSize" : "0",
+				"MinSize" : "0",
+				"Recurrence" : { "Ref" : "ScheduledTurnOff" }
+			}
+		},
+		"AppScheduledActionUp" : {
+			"Condition" : "TurnOffNightly",
+			"Type" : "AWS::AutoScaling::ScheduledAction",
+			"Properties" : {
+				"AutoScalingGroupName" : {
+					"Ref" : "AppAutoScalingGroup"
+				},
+				"DesiredCapacity" : { "Ref" : "CapacityMin" },
+				"MaxSize" : { "Ref" : "CapacityMax" },
+				"MinSize" : { "Ref" : "CapacityMin" },
+				"Recurrence" : { "Ref" : "ScheduledTurnOn" }
+			}
+		},
+		"AppStatusCheckAlarm" : {
+			"Type" : "AWS::CloudWatch::Alarm",
+			"Properties" : {
+				"AlarmActions" : [ {
+					"Fn::If" : [ "NoSNS",
+						{ "Ref" : "AWS::NoValue" },
+						{ "Ref" : "SNSTopic" }
+					]
+				} ],
+				"ComparisonOperator" : "GreaterThanOrEqualToThreshold",
+				"Dimensions" : [ {
+					"Name" : "AutoScalingGroupName",
+					"Value" : { "Ref" : "AppAutoScalingGroup" }
+				} ],
+				"EvaluationPeriods" : 3,
+				"MetricName" : "StatusCheckFailed",
+				"Namespace" : "AWS/EC2",
+				"Period" : 60,
+				"Statistic" : "Maximum",
+				"Threshold" : "1"
+			}
+		}
+	},
+	"Outputs" : {
+		"AutoScalingGroup" : {
+			"Description" : "Name of Autoscaling group",
+			"Value" : { "Ref" : "AppAutoScalingGroup" }
+		},
+		"KeyPairLoaded" : {
+			"Description" : "Details about the Key Pair used.",
+			"Value" : { 
+				"Fn::If" : [ "NoKey",
+					"No Key Pair loaded",
+					{"Ref" : "KeyPair" }
+				]
+			}
+		},
+		"OwnerContact" : {
+			"Description" : "EID of individual creating the stack.",
+			"Value" : { "Ref" : "OwnerContact" }
+		},
+		"PeriodicallyTurnOff" : {
+			"Description" : "Scheduled turn off.",
+			"Value" : { 
+				"Fn::If" : [ "TurnOffNightly",
+					{
+						"Fn::Join" : [
+							"",
+							[
+								"Turn off at: ",
+								{ "Ref" : "ScheduledTurnOff" },
+								" - Turn on at: ",
+								{ "Ref" : "ScheduledTurnOn" }
+							]
+						]
+					},
+					"No periodic turn off"
+				]
+			}
+		}
+	}
+}

@@ -1,0 +1,191 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "AWS CloudFormation Template to create a S3 bucket and attach a Bucket Policy",
+    "Mappings":{
+        "params": {
+            "ASVCode": {
+                "test": "ASVCOBAWS",
+                "preprod": "ASVCOBAWS",
+                "prod": "ASVCOBAWS"
+            },     
+            "CMDBEnvironment": {
+                "test": "ENVNPAWS",
+                "preprod": "ENVNPAWS",
+                "prod": "ENVPRAWS"
+            }
+        }
+    },
+    "Parameters": {
+        "S3BucketName": {
+            "Description": "Name of the Bucket",
+            "Type": "String"
+        },
+        "Environment": {
+            "Default": "test",
+            "Description": "What environment type is it (prod, preprod, test)?",
+            "Type": "String",
+            "AllowedValues": [
+                "prod",
+                "preprod",
+                "test"
+            ]
+        },
+        "Owner": {
+            "Description": "EID of individual creating the stack.",
+            "Type": "String",
+			"MinLength" : "6",
+			"MaxLength" : "6"
+        },
+        "vpceID": {
+            "Default": "vpce-afde3ec6",
+            "Description": "Restricts access to bucket objects to only this VPCE",
+            "Type": "String"
+        }        
+    },
+    "Resources": {
+        "S3Bucket": {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+                "BucketName": {
+                    "Ref":"S3BucketName"
+                },
+                "Tags": [{
+                    "Key": "ASVCode",
+                    "Value": {
+                        "Fn::FindInMap": [
+                            "params",
+                            "ASVCode",{
+                                "Ref": "Environment"
+                            }
+                        ]
+                    }
+                }, {
+                    "Key":"Owner",
+                    "Value": {
+                        "Ref": "Owner"
+                    }
+                }, {
+                    "Key": "CMDBEnvironment",
+                    "Value": {
+                        "Fn::FindInMap": [
+                            "params",
+                            "CMDBEnvironment",{
+                                "Ref": "Environment"
+                            }
+                        ]
+                    }
+                }, {
+                    "Key": "Name",
+                    "Value": {
+                        "Ref": "AWS::StackName"
+                    }
+                }, {
+                    "Key": "RestAPIServer",
+                    "Value": "EXAM_PLE"
+                }, {
+                    "Key": "Channel",
+                    "Value": "EXAMPLE"
+                }]
+            },
+            "DeletionPolicy": "Delete"
+        },
+        "BucketPolicy":{
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Id": "Gives user Get/Put/Delete access",
+                    "Statement": [
+                        {
+                            "Sid":"Get/Put/Delete Objects",
+                            "Action": [
+                                "s3:GetObjectVersion",
+                                "s3:GetObject",
+                                "s3:PutObject",
+                                "s3:DeleteObject",
+                                "s3:DeleteObjectVersion"
+                            ],
+                            "Effect": "Allow",
+                            "Resource": {
+                                "Fn::Join": [
+                                    "",
+                                    [
+                                        "arn:aws:s3:::",
+                                        {
+                                            "Ref": "S3Bucket"
+                                        },
+                                        "/*"
+                                    ]
+                                ]
+                            },
+                            "Principal": "*",
+                            "Condition": {
+                                "StringEquals": {
+                                    "aws:sourceVpce": {
+                                        "Ref": "vpceID"
+                                    }
+                                }
+                            }                            
+                        },
+                        {
+                            "Sid":"Bucket Policy",
+                            "Action": [
+                                "s3:ListBucketVersions",
+                                "s3:ListBucket"
+                            ],
+                            "Effect": "Allow",
+                            "Resource": {
+                                "Fn::Join": [
+                                    "",
+                                    [
+                                        "arn:aws:s3:::",
+                                        {
+                                            "Ref": "S3Bucket"
+                                        }
+                                    ]
+                                ]
+                            },
+                            "Principal": "*",
+                            "Condition": {
+                                "StringEquals": {
+                                    "aws:sourceVpce": {
+                                        "Ref": "vpceID"
+                                    }
+                                }
+                            }                                                        
+                        }                        
+                    ]
+                },
+                "Bucket": {
+                    "Ref": "S3Bucket"
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "WebsiteURL": {
+            "Value": {
+                "Fn::GetAtt": [
+                    "S3Bucket",
+                    "WebsiteURL"
+                ]
+            },
+            "Description": "URL for website hosted on S3"
+        },
+        "S3BucketSecureURL": {
+            "Value": {
+                "Fn::Join": [
+                    "", [
+                        "https://", {
+                            "Fn::GetAtt": [
+                                "S3Bucket",
+                                "DomainName"
+                            ]
+                        }
+                    ]
+                ]
+            },
+            "Description": "Name of S3 bucket to hold website content"
+        } 
+
+    }
+}
